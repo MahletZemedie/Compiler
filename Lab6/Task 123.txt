@@ -1,0 +1,677 @@
+
+ Grammar
+
+    0 $accept: Exp $end
+
+    1 Exp: Term
+    2    | Exp '+' Term
+
+    3 Term: Factor
+    4     | Term '*' Factor
+
+    5 Factor: Primary
+    6       | Primary '^' Factor
+
+    7 Primary: Id
+    8        | '(' Exp ')'
+
+    9 Id: 'a'
+
+FIRST & FOLLOW
+
+FIRST (S)          = FIRST(Exp)    ={a}
+FIRST (Exp)        = FIRST(Term)   ={a,'('}
+FIRST (Term)       = FIRST(Factor) ={a,'('}
+FIRST (Factor)     = FIRST(Primary)=(a,'(')
+FIRST (Primary)    = FIRST(Id, '(')={a}
+FIRST (Id)         = {a}
+
+FOLLOW (S)         ={$}
+FOLLOW (Exp)       ={$,+,)}
+FOLLOW(Term)       ={$,+,),*}
+FOLLOW(Factor)     ={$,+,),*}
+FOLLOW(Primary)    ={$,+,),*,^}
+FOLLOW(Id)         ={$,+,),*,^,a}       
+
+        FIRST           FOLLOW
+------------------------------
+Exp     {a,(}        {$,+,)}
+Term    {a,(}        {$,+,),*}
+Factor  {a,(}        {$,+,),*}
+Primary {a}          {$,+,),*,^}
+Id      {a}          {$,+,),*,^,a}
+
+
+
+DFA with item sets
+
+State q0
+     
+      S' -> .Exp 
+
+    transitions:
+     (: shift (, and go to state q1
+     a: shift a, and go to state q2
+    Exp:             go to state q3
+    Term:            go to state q4
+    Factor:          go to state q5
+    Primary:         go to state q6
+    Id:              go to state q7
+
+
+State q1
+    Primary -> '(' . Exp ')'
+	
+    
+
+    transitions:
+
+    (:  shift '(', and go to state 1
+    a:  shift 'a', and go to state 2
+    Exp:               go to state 8
+    Term:              go to state 4
+    Factor:            go to state 5
+    Primary:           go to state 6
+    Id:                go to state 7
+
+
+State q2
+     Id -> a
+
+    reduce by Id -> a (rule 9) if next input is in FOLLOW(Id) = {$,+,),*,^,a}.
+
+
+State q3
+       S' -> Exp .
+       Exp -> Exp . '+' Term
+
+    transitions:
+    $end  shift, and go to state 9
+    '+'   shift, and go to state 10
+
+
+State q4
+
+     Exp ->  Term .
+     Term -> Term . '*' Factor
+  
+    transitions:
+    *: shift *, and go to state 11
+
+    reduce by Exp -> Term (rule 1) if next input is in FOLLOW(Exp) = {$,+,)}.
+
+
+State q5
+
+    Term-> Factor .
+
+    reduce by Term-> Factor(rule 3) if next input is in FOLLOW(Term)= {$,+,),*}.
+    
+
+
+State q6
+
+     Factor -> Primary .
+     Factor -> Primary . '^' Factor
+
+    ^: shift ^ , and go to state 12
+
+    reduce by Factor -> Primary(rule 5) if next input is in FOLLOW(Factor)= {$,+,),*}.
+ 
+
+
+State q7
+
+     Primary -> Id .
+
+   reduce by Primary -> Id(rule 7) if next input is in FOLLOW(Primary)= {$,+,),*,^}
+ 
+
+
+State q8
+
+     Exp -> Exp . '+' Term
+     Primary -> '(' Exp . ')'
+
+     transitions:
+    + : shift + , and go to state q10
+    ) : shift ) , and go to state q13
+
+
+State q10
+
+     Exp -> Exp '+' . Term
+
+        
+     transitions:
+     ( -> shift (, and go to state q1
+     a -> shift a, and go to state q2
+     Term:             go to state q14
+     Factor:           go to state q5
+     Primary:          go to state q6
+     Id:               go to state q7
+
+
+State q11
+
+     Term -> Term '*' . Factor
+
+     transitions:
+    (:  shift (, and go to state q1
+    a:  shift a, and go to state q2
+    Factor:          go to state q15
+    Primary:         go to state q6
+    Id:              go to state q7
+
+
+State q12
+
+    Factor -> Primary '^' . Factor
+
+     transitions:
+    (:  shift (, and go to state q1
+    a:  shift a, and go to state q2
+    Factor:          go to state q16
+    Primary:         go to state q6
+    Id:              go to state q7
+
+State q13
+
+    Primary -> '(' Exp ')' .
+
+    reduce by Primary -> '(' Exp ')' (rule 8) if next input is in FOLLOW(Primary)= {$,+,),*,^}
+ 
+
+State q14
+
+     Exp -> Exp '+' Term .
+    Term -> Term . '*' Factor
+
+    *: shift *, and go to state 11
+
+    reduce by Exp-> Exp '+' Term (rule 2) if next input is in FOLLOW(Exp)= {$,+,)}
+
+
+
+State 15
+
+    Term -> Term '*' Factor .
+   
+    reduce by Term-> Term '*' Factor (rule 4) if next input is in FOLLOW(Term)= {$,+,),*}
+  
+
+
+State 16
+
+    Factor -> Primary '^' Factor .
+
+    reduce by Factor -> Primary '^' Factor (rule 6) if next input is in FOLLOW(Factor)= {$,+,),*}
+
+SLR parse table:
+
+    a   +   *   ^   (   )   $    Exp   Term   Factor   Primary  Id
+
+0   s2              s1           3     4      5        6        7
+1   s2              s1           8     4      5        6        7
+2       r9  r9  r9      r9  r9
+3       s10                 acc
+4       r1  s11         r1  r1
+5       r3  r3          r3  r3
+6       r5  r5  s12     r5  r5
+7       r7  r7  r7      r7  r7
+8       s10             s13
+10  s2              s1                 14     5        6        7
+11  s2              s1                        15       6        7
+12  s2              s1                        16       6        7
+13      r8  r8  r8      r8  r8
+14      r2  s11         r2  r2
+15      r4  r4          r4  r4
+16      r6  r6          r6  r6
+  
+We illustrate how to use the parse table to parse the string
+
+   a + a ^ a *  a ^ ((a + a) * a)^ a * a
+
+first input symbol is a
+
+stack: (bottom) q0 (top)
+       from action[q0,a] = s2, shift (a,q2) onto stack
+
+
+stack:   (bottom) q0, (a,q2) (top)
+	 next input symbol is +
+      from action[q2,+] = r9, reduce Id -> a (rule 9) 
+	 pop one symbol (a, q2) off the stack
+
+Stack: (bottom) q0 (top)
+	the top stack state is q0 ^
+	push GOTO[q0, Id], which is q7, onto the stack
+
+Stack: (bottom) q0 (Id, q7) (top)
+	from action [q7, +] = r7, reduce Primary -> Id (rule 7)
+	pop one symbol off the stack
+
+Stack: (bottom) q0 (top)
+	the top stack is q0
+	push GOTO [q0, Primary], which is q6, onto the stack
+	
+Stack: (bottom) q0 (Primary, q6) (top)
+	from action [q6, +] = r5, reduce Factor -> Primary (rule 5)
+	pop one symbol (Primary, q6) off the stack
+
+Stack: (bottom) q0 (top)
+	the top stack is q0
+	push GOTO [q0, Factor], which is q5, onto the stack
+
+Stack: (bottom) q0 (Factor, q5) (top)
+	from action [q5, +], = r3, reduce Term -> Factor (rule 3)
+	pop one symbol (Factor, q5) off the stack
+
+Stack: (bottom) q0 (top)
+	the top stack is q0
+	push GOTO [q0, Term], which is q4, onto the stack
+
+Stack: (bottom) q0 (Term, q4) (top)
+	from action [q4, +], = r1, reduce Exp -> Term (rule 1)
+	pop one symbol (Term, q4) off the stack
+
+Stack: (bottom) q0 (top)
+	the top stack is q0
+	Push GOTO [q0, Exp], which is q3, onto the stack
+
+Stack:(bottom) q0 (Exp, q3)(top)
+	from action [q3, +], = s10, shift (+, q10) onto stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (top)
+	next input symbol is a
+	from action [q10, a], = s2 shift (a, q2) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (a, q2) (top)
+	next input symbol is ^
+	from action [q2, ^], = r9, reduce Id -> a (rule 9)
+	pop one symbol (a, q2) off the stack 
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (top)
+	the top stack is q10
+	push GOTO [q10, Id], which is q7 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Id, q7) (top)
+	from action [q7, ^], = r7 reduce Primary -> Id (rule 7)
+	pop one symbol (Id, q7) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (top)
+	the top stack is q10
+	push GOTO [q10, Primary], which is q6 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Primary, q6) (top)
+	from action [q6, ^], = s12 shift (a, q12) onto stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Primary, q6) (a, q12) (top)
+	next input is a
+	from action [q12, a], = s2 shift (*, q2) onto stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Primary, q6) (a, q12) (*, q2) (top)
+	next input is *
+	from action [q2, *], = r9 reduce Id -> a (rule 9)
+	pop one symbol (*, q2) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Primary, q6) (a, q12) (top)
+	the top stack is q12
+	push GOTO [q12, Id], which is q7 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Primary, q6) (a, q12) (Id, q7) (top)
+	from action [q7, *], = r7 reduce Primary -> Id (rule 7)
+	pop one symbol (Id, q7) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Primary, q6) (a, q12) (top)
+	the top stack is q12
+	push GOTO [q12, Primary], which is q6 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Primary, q6) (a, q12) (Primary, q6) (top)
+	from action [q6, *], = r5 reduce Factor -> Primary (rule 5)
+	pop one symbol (Primary, q6) off the stack
+
+Stack:  (bottom) q0 (Exp, q3) (a, q10) (Primary, q6) (a, q12) (top)
+	the top stack is q12
+	psuh GOTO [q12, Factor], which is q16 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Primary, q6) (a, q12) (Factor, q16) (top)
+	from action [q16, *], = r6 reduce Factor -> Primary ^ Factor (rule 6)
+	pop three stack symbols off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (top)
+	the top stack is q10
+	push GOTO [q10, Factor], which is q5 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Factor, q5) (top)
+	from action [q5, *], = r3 reduce Term -> Factor (rule 3)
+	pop one symbol (Factor, q5) off stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (top)
+	the top stack is q10	
+	push GOTO [q10, Term], which is q14 onto the stack
+	 
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (top)
+	from action [q14, *], = s11 shift (a, q11) onto stack
+
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (top)
+	next input is a
+	from action [q11, a], = s2 shift (a, q2) onto stack
+
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (a, q2) (top)
+	next input is ^
+	from action [q2, ^], = r9 reduce Id -> a (rule 9)
+	pop one symbol (a, q2) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (top)
+	the top stack is q11
+	push GOTO [q11, Id], which is q7 onto stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Id, q7) (top)
+	from action [q7, ^], = r7 reduce Primary -> Id
+	pop one symbol (Id, q7) off stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (top)
+	the top stack is q11
+	push GOTO [q11, Primary], which is q6 onto stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) (top)
+    from action [q6, ^], = s12 shift ('(', q12) onto stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) (top)
+    next input is '('
+    from action [q12, (], = s1 shift ('(', q1) onto stack
+
+Stack:  (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    next input is '('
+    from action [q1, '('], = s1 shift (a, q1) onto stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (a, q1) (top)
+    next input is a
+    from action [q1, a], = s2 shift (+, q2) onto stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (a, q1) (+, q2) (top)
+    next input is +
+    from action [q2, +], = r9 reduce Id -> a (rule 9)
+    pop one symbol (+, q2) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (a, q1) (top)
+    the top stack is q1
+    push GOTO [q1, Id], which is q7 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (a, q1) (top)
+    from action [q1, +], = r7 reduce Primary -> Id (rule 7)
+    pop one symbol (a, q1) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Primary], which is q6 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (top)
+    from action [q6, +], = r5 reduce Factor -> Primary
+    pop one symbol (Primary, q6) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Factor], which is q5 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Factor, q5) (top)
+    from action [q5, +], = r3 reduce Term -> Factor
+    pop one symbol (Factor, q5) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Term], which is q4 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (top)
+    from action [q4, +], = r1 reduce Exp -> Term
+    pop one symbol (Term, q4) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Term], which is q8 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (top)
+    from action [q8, +], = s10 shift (a, q10) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) (top)
+    next input is a
+    from action [q10, a], = s2 shift (')', q2) onto stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) ((')', q2)) (top)
+    next input is ')'
+    from action [q2, )], = r9 reduce Id -> a (rule 9)
+    pop one symbol ((')', q2)) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) (top)
+    the top stack is q10
+    push GOTO [q10, Id], which is q7 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) (Id, q7) (top)
+    from action [q7, )], = r7 reduce Primary -> Id
+    pop one symbol (Id, q7) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) (top)
+    the top stack is q10
+    push GOTO [q10, Primary], which is q6 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) (Primary, q6) (top)
+    from action [q10, )], = r5 reduce Factor -> Primary (rule 5)
+    pop one symbol (Primary, q6) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) (top)
+    the top stack is q10
+    push GOTO [q10, Factor], which is q5 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) (Factor, q5) (top)
+    from action [q5, )], = r3 reduce Term -> Factor (rule 3)
+    pop one symbol (Factor, q5) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) (top)
+    the top stack is q10
+    push GOTO [q10, Term], which is q14 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q8) (a, q10) (Term, q14) (top)
+    from action [q14, )], = r2 reduce by Exp-> Exp '+' Term (rule 2)
+    pop three symbols off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Exp], which is q8 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Exp, q8) (top)
+    from action [q8, )], = s13 shift (q13, *) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Exp, q8) (*, q13) (top)
+    next input is *
+    from action [q13, *], = r8 reduce Primary -> '(' Exp ')' (rule 8)
+    pop two symbols off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q12
+    push GOTO [q12, Primary], which is q6 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (top)
+    from action [q6, *], = r5 reduce Factor -> Primary (rule 5)
+    pop one symbol (Primary, q6) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Factor], which is q5 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Factor, q5) (top)
+    from action [q5, *], = r3 reduce Term -> Factor (rule 3)
+    pop one symbol (Factor, q5) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Term], which is q4 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (top)
+    from action [q4, *], = s11 shift (a, q11) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (a, q11) (top)
+    next input is a
+    from action [q11, a], = s2 shift (')', q2) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (a, q11) (')', q2) (top)
+    next input is ')'
+    from action [q2, )], = r9 reduce Id -> a (rule 9)
+    pop one symbol (')', q2) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (a, q11) (top)
+    the top stack is q11
+    push GOTO [q11, Id], which is q7 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (a, q11) (Id, q7) (top)
+    from action [q7, )], = r7 reduce Primary -> Id (rule 7)
+    pop one symbol (Id, q7) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (a, q11) (top)
+    the top stack is q11
+    push GOTO [q11, Primary], which is q6 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (a, q11) (Primary, q6) (top)
+    from action [q6, )], = r5 reduce Factor -> Primary (rule 5)
+    pop one symbol (Primary, q6) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (a, q11) (top)
+    the top stack is q11
+    push GOTO [q11, Factor], which is q15 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (a, q11) (Factor, q15) (top)
+    from action [q15, )], = r4 reduce Term -> Term * Factor (rule 4)
+    pop three symbols off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Term], which is q4
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Term, q4) (top)
+    from action [q4, )], = r1 reduce Exp -> Term (rule 1)
+    pop one symbol (Term, q4) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Exp], which is q8 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Exp, q8) (top)
+    from action [q8, )] = s13 shift (^, q13) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Exp, q8) (^, q13) (top)
+    next input is ^
+    from action [q13, ^], = r8 reduce Primary -> '(' Exp ')' (rule 8)
+    pop two symbols off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (top)
+    the top stack is q1
+    push GOTO [q1, Primary], which is q6 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (top)
+    from action [q6, ^], = s12 shift (a, q12) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (a, q12) (top)
+    next input is a
+    from action [q12, a], = s2 shift (*, q2) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (a, q12) (*, q2) (top)
+    next input is *
+    from action [q2, *], = r9 reduce Id -> a (rule 9)
+    pop one symbol (*, q2) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (a, q12) (top)
+    the top stack is q12
+    push GOTO [q12, Id], which is q7 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (a, q12) (Id, q7) (top)
+    from action [q7, *], = r7 reduce Primary -> Id (rule 7)
+    pop one symbol (Id, q7) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (a, q12) (top)
+    the top stack is q12
+    push GOTO [q12, Primary], which is q6 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (a, q12) (Primary, q6) (top)
+    from action [q6, *], = r5 reduce Factor -> Primary (rule 5)
+    pop one symbol (Primary, q6) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (a, q12) (top)
+    the top stack is q12
+    push GOTO [q12, Factor], which is q16 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) ('(', q1) (Primary, q6) (a, q12) (Factor, q16) (top)
+    from action [q16, *], = r6 reduce Factor -> Primary '^' Factor (rule 6)
+    pop three symbols off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) (top)
+    the top stack is q12
+    push GOTO [q12, Factor], which is q16 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) ('(', q12) (Factor, q16) (top)
+    from action [q16, *], = r6 reduce Factor -> Primary '^' Factor (rule 6)
+    pop three symbols off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (top)
+    the top stack is q11
+    push GOTO [q11, Factor], which is q15 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Factor, q15) (top)
+    from action [q15, *], = r4 reduce Term -> Term * Factor (rule 4)
+    pop three symbols off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (top)
+    the top stack is q10
+    push GOTO [q10, Term], which is q14 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (top)
+    from action [q14, *], = s11 shift (a, q11) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (top)
+    next input is a
+    from action [q11, a], = s2 shift ($, q2) onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) ($,q2) (top)
+    next input is $
+    from action [q2, $], = r9 reduce Id -> a (rule 9)
+    pop one symbol ($,q2) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (top)
+    the top stack is q11
+    push GOTO [q11, Id], which is q7 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Id, q7) (top)
+    from action [q7, $], = r7 reduce Primary -> Id (rule 7)
+    pop one symbol (Id, q7) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (top)
+    the top stack is q11
+    push GOTO [q11, Primary], which is q6 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Primary, q6) (top)
+    from action [q6, $], = r5 reduce Factor -> Primary (rule 5)
+    pop one symbol (Primary, q6) off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (top)
+    the top stack is q11
+    push GOTO [q11, Factor], which is q15 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (a, q11) (Factor, q15) (top)
+    from action [q15, $], = r4 reduce Term -> Term * Factor (rule 4)
+    pop three symbols off the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (top)
+    the top stack is q10
+    push GOTO [q10, Term], which is q14 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (a, q10) (Term, q14) (top)
+    from action [q14, $], = r2 reduce by Exp-> Exp '+' Term (rule 2)
+    pop three symbols off the stack
+
+Stack: (bottom) q0 (top)
+    the top stack is q0
+    push GOTO [q0, Exp], which is q3 onto the stack
+
+Stack: (bottom) q0 (Exp, q3) (top)
+    from action [q3, $], = acc

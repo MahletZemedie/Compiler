@@ -1,0 +1,953 @@
+Please submit all your programs in a zip file including test cases to CANVAS.
+
+In this homework, we are going to generate Java Virtual Machine codes by processing the abstract syntax tree constructed from the parsing process.
+
+We are going to support all features of C-- language for integer data type. That is, for the purpose of this homework, float data type is not supported. Also, we assume the there is no global variables.
+
+Click here for the notes on Java Virtual Machine and Jasmin assembler.
+
+The template for codes generation program is similar to that given for Lab 9. The main program is given as follows:
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "symtbl.h"
+#include "mem.h"
+#define ERROR(msg)  { fprintf(stderr, "%s\n", msg); exit(-1); }
+
+int yyparse();
+
+FILE *fp;                // global variable
+char *classname;         // global variable
+
+
+void print_header(char *classname) {
+   fprintf(fp, ".class public %s\n", classname);
+   fprintf(fp, ".super java/lang/Object\n\n");
+   fprintf(fp, ".method public ()V\n");
+   fprintf(fp, "   .limit stack 1\n");
+   fprintf(fp, "   aload_0\n");
+   fprintf(fp, "   invokespecial java/lang/Object/()V\n");
+   fprintf(fp, "   return\n");
+   fprintf(fp, ".end method\n\n\n");
+}
+
+main(int argc, char *argv[])
+{
+   char *filename, *output_filename;
+   filename = *++argv;
+   if (strlen(filename) < 2 || filename[strlen(filename)-1] != 'c' ||
+                               filename[strlen(filename)-2] != '.' )
+      ERROR("file name does not have extension .c");
+   classname = malloc(23);
+   strncpy(classname, filename, strlen(filename)-2);
+   classname[strlen(filename)-2] = '\0';
+   output_filename = malloc(23);
+   sprintf(output_filename, "%s.j", classname);
+   if ((stdin = fopen(filename,        "r")) == NULL) ERROR("Cannot open input file\n");
+   if ((fp    = fopen(output_filename, "w")) == NULL) ERROR("Cannot open output file\n");
+
+   mem_init();
+   symtbl_init();
+   ast_init();
+   yyparse();
+   ast_dump();
+   print_header(classname);
+   traverse_ast(ast_root,0,0,0,0,0,0);
+   fclose(fp);
+   fclose(stdin);
+}
+while the variables fp and classname should be declared globally as:
+FILE *fp;
+char *classname;
+Also, click here for an executable for Lab 12.
+//the files will be upload once we find someone who can do this project 
+/*
+Below are the codes that you need: 
+lexer.l (same codes as before)
+mem.c (same codes as before)
+mem.h (same codes as before)
+ast.c (same codes as before)
+ast.h (same codes as before)
+symtbl.c (changes are marked by a comment "// *** NEW ***")
+symtbl.h (changes are marked by a comment "// *** NEW ***")
+parser.y (changes are marked by a comment "// *** NEW ***")
+*/
+The commands to compile are:
+
+   gcc -c mem.c
+   gcc -c symtbl.c
+   gcc -c ast.c
+   flex lexer.l
+   yacc parser.y
+   gcc -c y.tab.c
+   gcc -o hw12 hw12.gen.codes.c y.tab.o ast.o symtbl.o mem.o -lfl -ly
+One can obtain the Java Virtual Machine codes for C-- codes from the java compiler as follows. First, let's consider the same C-- example program example.c as considered in previous labs:
+
+int GCD(int x, int y)
+{
+   while (!(x == y))
+      if (x > y) x = x-y;
+      else y = y-x;
+   return x;
+}
+
+int Factorial(int v)
+{
+   int limit = 7;
+
+   if (v < 0 || v > limit) return -1;
+   {
+       int c = 0, fact = 1;
+
+       /* Loop invariant: fact == c! */
+       while (c < v) {
+          c = c+1; fact = fact*c;
+       }
+       return fact;
+   }
+}
+We package it as a Java program as follows:
+
+public class example {
+
+public static 
+int GCD(int x, int y)
+{
+   while (!(x == y))
+      if (x > y) x = x-y;
+      else y = y-x;
+   return x;
+}
+
+public static 
+int Factorial(int v)
+{
+   int limit = 7;
+
+   if (v < 0 || v > limit) return -1;
+   {
+       int c = 0, fact = 1;
+
+       /* Loop invariant: fact == c! */
+       while (c < v) {
+          c = c+1; fact = fact*c;
+       }
+       return fact;
+   }
+}
+
+}
+The commands are:
+  javac example.java
+  javap -c example
+The command javap will produce the Java Virtual Machine Codes in readable format, which we give below:
+Compiled from "example.java"
+public class example extends java.lang.Object{
+public example();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#1; //Method java/lang/Object."":()V
+   4:	return
+
+public static int GCD(int, int);
+  Code:
+   0:	iload_0
+   1:	iload_1
+   2:	if_icmpeq	24
+   5:	iload_0
+   6:	iload_1
+   7:	if_icmple	17
+   10:	iload_0
+   11:	iload_1
+   12:	isub
+   13:	istore_0
+   14:	goto	0
+   17:	iload_1
+   18:	iload_0
+   19:	isub
+   20:	istore_1
+   21:	goto	0
+   24:	iload_0
+   25:	ireturn
+
+public static int Factorial(int);
+  Code:
+   0:	bipush	7
+   2:	istore_1
+   3:	iload_0
+   4:	iflt	12
+   7:	iload_0
+   8:	iload_1
+   9:	if_icmple	14
+   12:	iconst_m1
+   13:	ireturn
+   14:	iconst_0
+   15:	istore_2
+   16:	iconst_1
+   17:	istore_3
+   18:	iload_2
+   19:	iload_0
+   20:	if_icmpge	34
+   23:	iload_2
+   24:	iconst_1
+   25:	iadd
+   26:	istore_2
+   27:	iload_3
+   28:	iload_2
+   29:	imul
+   30:	istore_3
+   31:	goto	18
+   34:	iload_3
+   35:	ireturn
+
+}
+By running the executable hw12 on the example C-- program example.c (not the Java program example.java).
+
+  hw12 example.c
+The command produces the file example.j, which codes we show below:
+.class public example
+.super java/lang/Object
+
+.method public ()V
+   .limit stack 1
+   aload_0
+   invokespecial java/lang/Object/()V
+   return
+.end method
+
+
+.method public static GCD(II)I
+L1:
+       iload_0
+       iload_1
+       if_icmpeq L2
+       iload_0
+       iload_1
+       if_icmple L3
+       iload_0
+       iload_1
+       isub
+       istore_0
+       goto L1
+L3:
+       iload_1
+       iload_0
+       isub
+       istore_1
+       goto L1
+L2:
+       iload_0
+       ireturn
+       .limit stack  2
+       .limit locals 2
+.end method
+
+
+.method public static Factorial(I)I
+       bipush 7
+       istore_1
+       iload_0
+       iflt L2
+       iload_0
+       iload_1
+       if_icmple L1
+L2:
+       iconst_m1
+       ireturn
+L1:
+       iconst_0
+       istore_2
+       iconst_1
+       istore_3
+L3:
+       iload_2
+       iload_0
+       if_icmpge L4
+       iload_2
+       iconst_1
+       iadd
+       istore_2
+       iload_3
+       iload_2
+       imul
+       istore_3
+       goto L3
+L4:
+       iload_3
+       ireturn
+       .limit stack  2
+       .limit locals 4
+.end method
+We can run jasmin on example.j to produce the java class file example.class as follows:
+jasmin example.j
+Again, we can show the class file example.class in readable format by the command:
+javap -c example
+Comparing the two class files example.class generated, we observe that javap prints the same outputs with the only exception of the first line has become
+Compiled from "example.j"
+instead of
+Compiled from "example.java"
+After obtaining the class file from the jasmin file example.j, one can test it using a Java program which we called testMain.java, which codes we give below:
+public class testMain {
+
+  public static void main(String[] args) {
+     System.out.println("GCD(84,36)   = " + example.GCD(84,36)  );
+     System.out.println("Factorial(5) = " + example.Factorial(5)); 
+  }
+}
+We can test the class file as follows:
+javac testMain.java
+java  testMain
+which prints the output
+GCD(84,36)   = 12
+Factorial(5) = 120
+Next, we consider example1.c, which codes are as follows:
+
+int F(int v)
+{
+   int limit = 7;
+
+   if (v < 0 || (v > limit || limit == 7)) return -1;
+   {
+       int c = 0, fact = 1;
+       return fact;
+   }
+}
+Running hw12, followed by jasmin, then javap, produces the following:
+Compiled from "example1.j"
+public class example1 extends java.lang.Object{
+public example1();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#1; //Method java/lang/Object."":()V
+   4:	return
+
+public static int F(int);
+  Code:
+   0:	bipush	7
+   2:	istore_1
+   3:	iload_0
+   4:	iflt	18
+   7:	iload_0
+   8:	iload_1
+   9:	if_icmpgt	18
+   12:	iload_1
+   13:	bipush	7
+   15:	if_icmpne	20
+   18:	iconst_m1
+   19:	ireturn
+   20:	iconst_0
+   21:	istore_2
+   22:	iconst_1
+   23:	istore_3
+   24:	iload_3
+   25:	ireturn
+
+}
+Again, this is the same as that generated by javac when the Java compiler is applied to example1.java which is adapted from example1.c.
+We look at the third example example2.c, which codes are as follows:
+
+int XYZ(int x, int y)
+{
+   while (x < y) {
+      x = x + y;
+      while (!(x == y))
+         if (x > y) x = x-y;
+         else y = y-x;
+   }
+   return x;
+}
+Following the same process, our hw12 compiler produces:
+Compiled from "example2.j"
+public class example2 extends java.lang.Object{
+public example2();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#1; //Method java/lang/Object."":()V
+   4:	return
+
+public static int XYZ(int, int);
+  Code:
+   0:	iload_0
+   1:	iload_1
+   2:	if_icmpge	36
+   5:	iload_0
+   6:	iload_1
+   7:	iadd
+   8:	istore_0
+   9:	iload_0
+   10:	iload_1
+   11:	if_icmpeq	0
+   14:	iload_0
+   15:	iload_1
+   16:	if_icmple	26
+   19:	iload_0
+   20:	iload_1
+   21:	isub
+   22:	istore_0
+   23:	goto	9
+   26:	iload_1
+   27:	iload_0
+   28:	isub
+   29:	istore_1
+   30:	goto	9
+   33:	goto	0
+   36:	iload_0
+   37:	ireturn
+
+}
+On the other hand, the Java compiler javac produces the following:
+Compiled from "example2.java"
+public class example2 extends java.lang.Object{
+public example2();
+  Code:
+   0:	aload_0
+   1:	invokespecial	#1; //Method java/lang/Object."":()V
+   4:	return
+
+public static int XYZ(int, int);
+  Code:
+   0:	iload_0
+   1:	iload_1
+   2:	if_icmpge	33
+   5:	iload_0
+   6:	iload_1
+   7:	iadd
+   8:	istore_0
+   9:	iload_0
+   10:	iload_1
+   11:	if_icmpeq	0
+   14:	iload_0
+   15:	iload_1
+   16:	if_icmple	26
+   19:	iload_0
+   20:	iload_1
+   21:	isub
+   22:	istore_0
+   23:	goto	9
+   26:	iload_1
+   27:	iload_0
+   28:	isub
+   29:	istore_1
+   30:	goto	9
+   33:	iload_0
+   34:	ireturn
+
+}
+The codes produced by hw12 differs from that by the Java compiler javac in that hw12 produces one extra un-reachable instruction given in statement 33 (which is the instruction goto 0). Note that hw12 produces the JVM codes in a single pass. Sometimes, hw12 produces a few more unnecessary branching statements which can be cleaned up by another pass over the generated codes.
+Another example is a recursive program for solving the Hanoi problem:
+
+/* compute the number of moves needed for solving the tower of hanoi problem */
+int nmr_of_moves( int nmr_disks, int source, int destination, int temporary ) {
+    if (nmr_disks == 0) return 0;
+    return nmr_of_moves(nmr_disks-1, source, temporary, destination ) + 
+           1 
+           + nmr_of_moves(nmr_disks-1, temporary, destination, source );
+}
+Our hw12 produces the following codes for hanoi.c
+.class public hanoi
+.super java/lang/Object
+
+.method public ()V
+   .limit stack 1
+   aload_0
+   invokespecial java/lang/Object/()V
+   return
+.end method
+
+
+.method public static nmr_of_moves(IIII)I
+       iload_0
+       ifne L1
+       iconst_0
+       ireturn
+L1:
+       iload_0
+       iconst_1
+       isub
+       iload_1
+       iload_3
+       iload_2
+       invokestatic hanoi/nmr_of_moves(IIII)I
+       iconst_1
+       iadd
+       iload_0
+       iconst_1
+       isub
+       iload_3
+       iload_2
+       iload_1
+       invokestatic hanoi/nmr_of_moves(IIII)I
+       iadd
+       ireturn
+       .limit stack  5
+       .limit locals 4
+.end method
+We can run jasmin to produce the class file hanoi.class. Using a test program testHanoi.java
+public class testHanoi {
+
+  public static void main(String[] args) {
+     System.out.println("number of moves need for moving a stack of 15 disks is " + 
+                        hanoi.nmr_of_moves(15,1,2,3)   );
+  }
+}
+, we can perform testing using the commands:
+javac testHanoi.java
+java testHanoi
+which produces the output:
+number of moves need for moving a stack of 15 disks is 32767
+Note that hw12 executable does not support mutual recursion. The logical way to support mutual recursion is to extend the C-- language definition to include function prototyping, which requires the grammar rules to be revised, something that we are not implementing for this homework.
+In lab 9, we have considered the following complicated test case:
+
+void merge(int a[],int b[],int c[],int a1,int a2,int b1,int b2,int c1)
+{int i;
+   if (a1>a2 && b1>b2) return;
+   c[c1]=(i=(b1>b2||((a1 < a2||a1==a2) && a[a1] < b[b1])))?a[a1]:b[b1];
+   merge(a,b,c,a1+i,a2,b1+1-i,b2,c1+1);
+}
+
+void Msort( int a[], int p, int r, int work_space[] )
+{int q,i;
+   if (p > r || p==r) return;
+   q = (p+r)/2;
+   Msort( a,p,q,  work_space );
+   Msort( a,q+1,r,work_space );
+   i = p;
+   while (i < q || i==q) {work_space[i]=a[i]; i=i+1;}
+   merge( work_space,a,a,p,q,q+1,r,p );
+}
+
+void mergesort( int a[], int n, int work_space[] )
+{
+   Msort(a,0,n-1,work_space);
+}
+Suppose the above program is named msort.c. Also, suppose we have prepared the following main program (named msortMain.java):
+
+public class msortMain {
+
+  public static void main(String[] args) {
+    int i;
+    int[] a = {5,6,3,2,7,9,8,1,0,4};
+    int[] temp = new int[10];
+    msort.mergesort(a, 10, temp);
+    for (i=0; i<10; i++) System.out.println(a[i]);
+  }
+
+}
+We next issue the following commands:
+  hw12 msort.c
+  jasmin msort.j
+  javac msortMain.java
+  java msortMain
+which produces the following correct answers:
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+For your reference, the following is the codes for msort.j:
+.class public msort
+.super java/lang/Object
+
+.method public ()V
+   .limit stack 1
+   aload_0
+   invokespecial java/lang/Object/()V
+   return
+.end method
+
+
+.method public static merge([I[I[IIIIII)V
+       iload_3
+       iload 4
+       if_icmple L1
+       iload 5
+       iload 6
+       if_icmple L1
+       return
+L1:
+       aload_2
+       iload 7
+       iload 5
+       iload 6
+       if_icmpgt L3
+       iload_3
+       iload 4
+       if_icmplt L5
+       iload_3
+       iload 4
+       if_icmpne L4
+L5:
+       aload_0
+       iload_3
+       iaload
+       aload_1
+       iload 5
+       iaload
+       if_icmplt L3
+L4:
+       iconst_0
+       goto L6
+L3:
+       iconst_1
+L6:
+       dup
+       istore 8
+       ifeq L2
+       aload_0
+       iload_3
+       iaload
+       goto L7
+L2:
+       aload_1
+       iload 5
+       iaload
+L7:
+       iastore
+       aload_0
+       aload_1
+       aload_2
+       iload_3
+       iload 8
+       iadd
+       iload 4
+       iload 5
+       iconst_1
+       iadd
+       iload 8
+       isub
+       iload 6
+       iload 7
+       iconst_1
+       iadd
+       invokestatic msort/merge([I[I[IIIIII)V
+       return
+       .limit stack  9
+       .limit locals 9
+.end method
+
+
+.method public static Msort([III[I)V
+       iload_1
+       iload_2
+       if_icmpgt L2
+       iload_1
+       iload_2
+       if_icmpne L1
+L2:
+       return
+L1:
+       iload_1
+       iload_2
+       iadd
+       iconst_2
+       idiv
+       istore 4
+       aload_0
+       iload_1
+       iload 4
+       aload_3
+       invokestatic msort/Msort([III[I)V
+       aload_0
+       iload 4
+       iconst_1
+       iadd
+       iload_2
+       aload_3
+       invokestatic msort/Msort([III[I)V
+       iload_1
+       istore 5
+L3:
+       iload 5
+       iload 4
+       if_icmplt L5
+       iload 5
+       iload 4
+       if_icmpne L4
+L5:
+       aload_3
+       iload 5
+       aload_0
+       iload 5
+       iaload
+       iastore
+       iload 5
+       iconst_1
+       iadd
+       istore 5
+       goto L3
+L4:
+       aload_3
+       aload_0
+       aload_0
+       iload_1
+       iload 4
+       iload 4
+       iconst_1
+       iadd
+       iload_2
+       iload_1
+       invokestatic msort/merge([I[I[IIIIII)V
+       return
+       .limit stack  8
+       .limit locals 6
+.end method
+
+
+.method public static mergesort([II[I)V
+       aload_0
+       iconst_0
+       iload_1
+       iconst_1
+       isub
+       aload_2
+       invokestatic msort/Msort([III[I)V
+       return
+       .limit stack  4
+       .limit locals 3
+.end method
+Another example shows how to create an array in JVM codes:
+int f(int x, int y) {
+    int a[3][4], i=0, j;
+    while (i < 3) {
+       j=0;
+       while (j < 4) {
+          a[i][j] = i*3 + j;
+          j = j + 1;
+       }
+       i = i + 1;
+    }
+    return a[x][y];
+}
+Suppose the above codes are saved in a file named t.c. Then the jasmin codes t.j are:
+.class public t
+.super java/lang/Object
+
+.method public ()V
+   .limit stack 1
+   aload_0
+   invokespecial java/lang/Object/()V
+   return
+.end method
+
+
+.method public static f(II)I
+       iconst_1
+       iconst_3
+       imul
+       iconst_4
+       imul
+       newarray int
+       astore_2
+       iconst_0
+       istore_3
+L1:
+       iload_3
+       iconst_3
+       if_icmpge L2
+       iconst_0
+       istore 4
+L3:
+       iload 4
+       iconst_4
+       if_icmpge L4
+       aload_2
+       iload_3
+       iconst_4
+       imul
+       iload 4
+       iadd
+       iload_3
+       iconst_3
+       imul
+       iload 4
+       iadd
+       iastore
+       iload 4
+       iconst_1
+       iadd
+       istore 4
+       goto L3
+L4:
+       iload_3
+       iconst_1
+       iadd
+       istore_3
+       goto L1
+L2:
+       aload_2
+       iload_0
+       iconst_4
+       imul
+       iload_1
+       iadd
+       iaload
+       ireturn
+       .limit stack  4
+       .limit locals 5
+.end method
+Next, with the main program
+public class tMain {
+
+  public static void main(String[] args) {
+    System.out.println(t.f(2,3));
+  }
+
+}
+, one can test the correctness of the jasmin codes.
+From the previous example for mergesort, it is noted that we need to make use of the instruction dup when an assignment to a simple variable is part of an expression. However, when an assignment to an array reference is part of an expression, not only that the generated codes make use of the instruction dup, we also may need to make use of the instruction swap which swaps the two top values in the stack. Consider the following example program t1.c:
+
+int setAndReturnDouble(int a[][4], int i, int j, int x) {
+    return 2*( a[i][j] = x );
+}
+
+int lookup(int a[][4], int i, int j) {
+    return  a[i][j];
+}
+which corresponding jasmin codes are:
+.class public t1
+.super java/lang/Object
+
+.method public ()V
+   .limit stack 1
+   aload_0
+   invokespecial java/lang/Object/()V
+   return
+.end method
+
+
+.method public static setAndReturnDouble([IIII)I
+       iconst_2
+       iload_3
+       dup
+       aload_0
+       swap
+       iload_1
+       iconst_4
+       imul
+       iload_2
+       iadd
+       swap
+       iastore
+       imul
+       ireturn
+       .limit stack  6
+       .limit locals 4
+.end method
+
+
+.method public static lookup([III)I
+       aload_0
+       iload_1
+       iconst_4
+       imul
+       iload_2
+       iadd
+       iaload
+       ireturn
+       .limit stack  3
+       .limit locals 3
+.end method
+Using the main program t1Main.java
+public class t1Main {
+
+  public static void main(String[] args) {
+
+    // considered as two-dimensional array of dimension 5 x 4
+    int[] b = new int[20];   
+
+    System.out.println(t1.setAndReturnDouble(b,2,3,10));
+    System.out.println(t1.lookup(b,2,3));
+  }
+
+}
+and issuing the commands
+hw12 t1.c
+jasmin t1.j
+javac t1Main.java
+java t1Main
+, we obtain the output of
+20
+10
+Note that if a function is defined to return a value, we need to make sure that a value is returned under all scenarios that the function is invoked. Otherwise, the Java virtual machine will not allow the program to run.
+
+Consider the following example (multiple assignment) gcd.c for computing the greatest common divisor of two nonnegative integers:
+
+int GCD( int a, int b ) {  
+    while (!(b == 0)) 
+       [a,b] = [b,a%b];    
+    return a;
+}
+The corresponding jasmin codes are:
+.class public gcd
+.super java/lang/Object
+
+.method public ()V
+   .limit stack 1
+   aload_0
+   invokespecial java/lang/Object/()V
+   return
+.end method
+
+
+.method public static GCD(II)I
+L1:
+       iload_1
+       ifeq L2
+       iload_1
+       istore_3
+       iload_0
+       iload_1
+       irem
+       istore_2
+       iload_3
+       istore_0
+       iload_2
+       istore_1
+       goto L1
+L2:
+       iload_0
+       ireturn
+       .limit stack  2
+       .limit locals 4
+.end method
+Using the main program gcdMain.java
+public class gcdMain {
+
+  public static void main(String[] args) {
+    System.out.println(gcd.GCD(84, 36));
+  }
+
+}
+and using the commands
+hw12 gcd.c
+jasmin gcd.j
+javac gcdMain.java
+java gcdMain
+, we obtain the output of
+12
+Programming Notes:
+Previously, traverse_ast does not return any value, and takes three arguments. To help with the code generation, you may want to extend the function traverse_ast to take some new arguments, and return some value. You can be free to decide how you want to extend the functionality of traverse_ast to help with generation of quality codes.
+
+For the jasmin file, it is required that each function has to include two directives for setting the limits on the size of the stack, and the number of local variables. For example, in the .j file for hanoi.c, we have
+
+.limit stack  5
+.limit locals 4
+which states that the execution of the function nmr_of_moves requires at most a stack of height 5 and at most 4 local variables. It is not difficult to determine the number of local variables needed. However, it takes more work to compute the stack height needed. It will be easier if the stack height is a loose upper bound. For your homework, it is an extra credit to compute a good upper bound on the stack height. It is ok just to assign a large number like 100 for the stack height if you are not interested in the extra credit.
+We have modified symtbl module so that each ID symbol has an entry with a field local_var_index. Note that in general we do not make use of any temp variable for codes generation; temp variables are introduced only when handling multiple assignment statement. We also need a global variable local_var_num, which use is similar to that of temp_num, to keep track of the largest variable number that is currently in use.
+Java uses special comparison instructions when one of the operands is 0. They are ifeq, ifne, iflt, ifge, ifgt, ifle. For your first attempt, you can just use the general comparison instructions if_icmpeq, if_icmpne, if_icmplt, if_icmpge, if_icmpgt, if_icmple so that you can avoid testing if one of the operands is 0.
+
+Finally, to load an integer, you may want to use the following to generate the JVM codes:
+
+void loadInteger(int i) {
+   if      ((     0 <= i) && (i <= 5    )) fprintf(fp,"       iconst_%d\n", i);
+   else if ((  -128 <= i) && (i <= 127  )) fprintf(fp,"       bipush %d\n", i);
+   else if ((-32768 <= i) && (i <= 32767)) fprintf(fp,"       sipush %d\n", i);
+   else                                    fprintf(fp,"       ldc %d\n",    i);
+}
+NOTE: the codes that your program generates do not have to match the quality of the codes generated by the Java compiler javac, or my hw12.
